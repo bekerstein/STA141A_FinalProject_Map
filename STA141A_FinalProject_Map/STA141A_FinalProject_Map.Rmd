@@ -1,0 +1,276 @@
+---
+title: 'STA 141A Project: Food Insecurity'
+author: "Brooke Kerstein, Gabriel Jones"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r warning=F,message=F,echo=F,results=F}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(hrbrthemes)
+library(gganimate)
+library(png)
+library(gifski)
+library(ggridges)
+library(tidyverse)
+library(tibble)
+library(mapview)
+library(sp)
+library(janitor)
+library(GGally)
+library(RColorBrewer)
+library(MASS)
+library(knitr)
+library(tidyverse)
+library(matlib)
+library(lubridate)
+library(pdftools)
+library(stringr)
+library(ggmap)
+library(ggsci)
+library(patchwork)
+library(ddpcr)
+library(caret)
+library(car)
+library(paletteer)
+```
+
+```{r warning=F,message=F,echo=F}
+#Import All Data Sets
+rawdata2010 <- readr::read_csv("FeedAmerica/FeedAmerica2010.csv")
+rawdata2011 <- readr::read_csv("FeedAmerica/FeedAmerica2011.csv")
+rawdata2012 <- readr::read_csv("FeedAmerica/FeedAmerica2012.csv")
+rawdata2013 <- readr::read_csv("FeedAmerica/FeedAmerica2013.csv")
+rawdata2014 <- readr::read_csv("FeedAmerica/FeedAmerica2014.csv")
+rawdata2015 <- readr::read_csv("FeedAmerica/FeedAmerica2015.csv")
+rawdata2016 <- readr::read_csv("FeedAmerica/FeedAmerica2016.csv")
+rawdata2017 <- readr::read_csv("FeedAmerica/FeedAmerica2017.csv")
+rawdata2018 <- readr::read_csv("FeedAmerica/FeedAmerica2018.csv")
+rawdata2019_2021 <- readr::read_csv("FeedAmerica/FeedAmerica2019_2021.csv")
+
+unemploymentdataraw <- readr::read_csv("Local_Area_Unemployment_Statistics__LAUS_.csv")
+unemploymentdataraw <- janitor::clean_names(unemploymentdataraw)
+
+incomedataraw <- readr::read_csv("incomedata.csv")
+incomedataraw <- janitor::clean_names(incomedataraw)
+
+DisData2021 <- readr::read_csv("DisabilityData/DisabilityData2021.csv")
+DisData2020 <- readr::read_csv("DisabilityData/DisabilityData2020.csv")
+DisData2019 <- readr::read_csv("DisabilityData/DisabilityData2019.csv")
+DisData2018 <- readr::read_csv("DisabilityData/DisabilityData2018.csv")
+DisData2017 <- readr::read_csv("DisabilityData/DisabilityData2017.csv")
+DisData2016 <- readr::read_csv("DisabilityData/DisabilityData2016.csv")
+DisData2015 <- readr::read_csv("DisabilityData/DisabilityData2015.csv")
+DisData2014 <- readr::read_csv("DisabilityData/DisabilityData2014.csv")
+DisData2013 <- readr::read_csv("DisabilityData/DisabilityData2013.csv")
+DisData2012 <- readr::read_csv("DisabilityData/DisabilityData2012.csv")
+DisData2011 <- readr::read_csv("DisabilityData/DisabilityData2011.csv")
+DisData2010 <- readr::read_csv("DisabilityData/DisabilityData2010.csv")
+```
+
+```{r warning=F,message=F,echo=F}
+# Clean Up Feed America 2019-2020
+FeedData2019_2021 <- rawdata2019_2021%>%
+  filter(State=="CA")
+
+FeedData2019_2021 <- FeedData2019_2021[,c(3:5)]
+
+FeedData2019_2021 <- janitor::clean_names(FeedData2019_2021)
+
+FeedData2019_2021[,3] <- sapply(FeedData2019_2021[,3],function(x) as.numeric(gsub("%","",x)))
+
+FeedData2019_2021 <- FeedData2019_2021[c("year","county_state","overall_food_insecurity_rate")]
+
+# Clean Up Feed America 2010-2018
+cleanFeed <- function(data){
+  
+  dataCA <- data%>%
+    filter(State=="CA")
+  
+  dataCA <- dataCA[,c(3,4)]
+  
+  dataCA[,2] <- sapply(dataCA[,2],function(x) as.numeric(gsub("%","",x)))
+  
+  colnames(dataCA) <- c("county_state","overall_food_insecurity_rate")
+  
+  return (dataCA)
+}
+
+FeedData2018 <- cbind("year"=rep(2018,nrow(cleanFeed(rawdata2018))),cleanFeed(rawdata2018))
+FeedData2017 <- cbind("year"=rep(2017,nrow(cleanFeed(rawdata2017))),cleanFeed(rawdata2017))
+FeedData2016 <- cbind("year"=rep(2016,nrow(cleanFeed(rawdata2016))),cleanFeed(rawdata2016))
+FeedData2015 <- cbind("year"=rep(2015,nrow(cleanFeed(rawdata2015))),cleanFeed(rawdata2015))
+FeedData2014 <- cbind("year"=rep(2014,nrow(cleanFeed(rawdata2014))),cleanFeed(rawdata2014))
+FeedData2013 <- cbind("year"=rep(2013,nrow(cleanFeed(rawdata2013))),cleanFeed(rawdata2013))
+FeedData2012 <- cbind("year"=rep(2012,nrow(cleanFeed(rawdata2012))),cleanFeed(rawdata2012))
+FeedData2011 <- cbind("year"=rep(2011,nrow(cleanFeed(rawdata2011))),cleanFeed(rawdata2011))
+FeedData2010 <- cbind("year"=rep(2010,nrow(cleanFeed(rawdata2010))),cleanFeed(rawdata2010))
+
+# Clean Feed America Data Frame 2010-2020
+FeedData <- rbind(FeedData2010,FeedData2011,FeedData2012,FeedData2013,FeedData2014,FeedData2015,FeedData2016,FeedData2017,FeedData2018,FeedData2019_2021)
+
+countyNameDisable <- FeedData$county_state
+
+FeedData <- FeedData%>%
+  mutate(county_state = gsub(", California", "", county_state))%>%
+  filter(year!=2021)%>%
+  rename(county = county_state)%>%
+  arrange(county)
+
+countyName <- FeedData$county
+```
+
+```{r warning=F,message=F,echo=F}
+# Clean Up Disability 2013-2020
+cleanDis1 <- function(data){
+  
+  dataCA <- data %>%
+    filter(NAME %in% c(countyNameDisable, 'Geographic Area Name')) %>%
+    row_to_names(row_number = 1)
+  
+  colnames(dataCA)[3] <- "Total Population"
+  
+  dataCA1 <- dataCA %>%
+    .[,!grepl("Margin of Error", colnames(.))] %>%
+    .[,!grepl("Annotation", colnames(.))] %>%
+    .[, grepl("Geographic Area Name|Percent with a disability",colnames(.))] %>%
+    .[,!grepl("population!",colnames(.))]
+  
+  dataCA1$'Geographic Area Name' <-gsub(", California", "", dataCA1$'Geographic Area Name')
+  colnames(dataCA1)[1] <- "county"
+  colnames(dataCA1)[2] <- "Percent with a disability"
+  
+  dataCA1 <- dataCA1 %>% mutate_at(-1, as.numeric)
+  
+  return (dataCA1)
+
+}
+
+Dis2020 <- cbind("year"=rep(2020,nrow(cleanDis1(DisData2020))),cleanDis1(DisData2020))
+Dis2019 <- cbind("year"=rep(2019,nrow(cleanDis1(DisData2019))),cleanDis1(DisData2019))
+Dis2018 <- cbind("year"=rep(2018,nrow(cleanDis1(DisData2018)[,c(1,2)])),cleanDis1(DisData2018)[,c(1,2)])
+Dis2017 <- cbind("year"=rep(2017,nrow(cleanDis1(DisData2017)[,c(1,2)])),cleanDis1(DisData2017)[,c(1,2)])
+Dis2016 <- cbind("year"=rep(2016,nrow(cleanDis1(DisData2016)[,c(1,2)])),cleanDis1(DisData2016)[,c(1,2)])
+Dis2015 <- cbind("year"=rep(2015,nrow(cleanDis1(DisData2015)[,c(1,2)])),cleanDis1(DisData2015)[,c(1,2)])
+Dis2014 <- cbind("year"=rep(2014,nrow(cleanDis1(DisData2014)[,c(1,2)])),cleanDis1(DisData2014)[,c(1,2)])
+Dis2013 <- cbind("year"=rep(2013,nrow(cleanDis1(DisData2013)[,c(1,2)])),cleanDis1(DisData2013)[,c(1,2)])
+
+# Clean Up Disability 2010-2012
+cleanDis2 <- function(data){
+  
+  dataCA <- data %>%
+    filter(NAME %in% c(countyNameDisable, 'Geographic Area Name')) %>%
+    row_to_names(row_number = 1)
+  
+  colnames(dataCA)[3] <- "Total Population"
+  
+  dataCA1 <- dataCA %>%
+    .[,!grepl("Margin of Error", colnames(.))] %>%
+    .[,!grepl("Annotation", colnames(.))] %>%
+    .[, grepl("Geographic Area Name|Percent with a disability",colnames(.))] %>%
+    .[,!grepl("population!",colnames(.))]
+  
+  dataCA1$'Geographic Area Name' <-gsub(", California", "", dataCA1$'Geographic Area Name')
+  colnames(dataCA1)[1] <- "county"
+  colnames(dataCA1)[2] <- "Percent with a disability"
+  
+  dataCA1 <- (dataCA1[,c(1,2)] %>% mutate_at(-1, as.numeric))
+  
+  return (dataCA1)
+}
+
+Dis2012 <- cbind("year"=rep(2012,nrow(cleanDis2(DisData2012))),cleanDis2(DisData2012))
+Dis2011 <- cbind("year"=rep(2011,nrow(cleanDis2(DisData2011))),cleanDis2(DisData2011))
+Dis2010 <- cbind("year"=rep(2010,nrow(cleanDis2(DisData2010))),cleanDis2(DisData2010))
+
+# Total Disability 2010-2021
+totalDisability <- rbind(Dis2010,Dis2011,Dis2012,Dis2013,Dis2014,Dis2015,Dis2016,Dis2017,Dis2018,Dis2019,Dis2020)
+totalDisability <- totalDisability %>% arrange(county)
+colnames(totalDisability) <- c("year","county","percent_disabled")
+```
+
+```{r warning=F,message=F,echo=F}
+### Clean Up Unemployment 2010-2020
+UnemploymentData <- unemploymentdataraw%>%
+  filter(area_type=="County", status_preliminary_final=="Final")%>%
+  filter(year>=2010 & year<2021)%>%
+  filter(!area_name %in% c("Non Residential County","Resident Out of State County","Unallocated County","Resident Out of State County","Nonresident20 County","Resident Out-of-State19 County","Resident Out-of-State County"))%>%
+  group_by(year, area_name)%>%
+  summarise("unemployment_rate_avg"=mean(unemployment_rate))%>%
+  distinct(.)%>%
+  ungroup() %>%
+  rename("county"="area_name")
+```
+
+```{r warning=F,message=F,echo=F}
+IncomeData <- incomedataraw%>%
+  filter(taxable_year >= 2010 & taxable_year <= 2021)%>%
+  filter(!county %in% c("Nonresident","Resident Out of State County","Unallocated","Resident Out of State County","Nonresident20 County","Resident Out-of-State19 County","Resident Out-of-State County"))%>%
+  rename("year"="taxable_year")%>%
+  mutate("county"=paste(.$county, "County"))%>%
+  arrange(year,county)
+
+IncomeData <- IncomeData[,c(1,2,6)]
+```
+
+```{r warning=F,message=F,echo=F}
+# Final Data Frame
+majorDF <- FeedData %>% full_join(totalDisability)
+majorDF <- majorDF %>% full_join(UnemploymentData)
+majorDF <- majorDF %>% full_join(IncomeData)
+
+majorDF <- majorDF %>% filter(!county %in% c("Resident Out of State County","Nonresident20 County","Resident Out-of-State19 County","Resident Out-of-State County"))
+
+majorDF2019 <- majorDF %>% filter(year==2019)
+majorDF2019 <- TailAge2019 %>% inner_join(majorDF2019)
+```
+
+```{r warning=F,message=F,echo=F}
+shape <- sf::read_sf(dsn = "CA_Counties_ShapeFile", layer = "CA_Counties_TIGER2016")
+counties <- shape['NAME'] %>% arrange(NAME)
+colnames(counties)[1] <- "county"
+
+majorDF2019$county <- gsub(" County","",majorDF2019$county)
+counties <- counties %>% full_join(majorDF2019)
+```
+
+```{r warning=F,message=F,echo=F}
+mapview(
+  counties,
+  zcol = "overall_food_insecurity_rate",
+  layer.name = "Food Insecurity Rate (%)",
+  map.types = "CartoDB.Positron",
+  na.color = "#AC5B4C",
+  col.regions = brewer.pal(100, "Blues"),
+  alpha.regions = 1
+) +
+  mapview(
+    counties,
+    zcol = "unemployment_rate_avg",
+    layer.name = "Unemployment Rate (%)",
+    map.types = "CartoDB.Positron",
+    na.color = "#AC5B4C",
+    col.regions = brewer.pal(100, "Blues"),
+    alpha.regions = 1
+  ) +
+  mapview(
+    counties,
+    zcol = "median_income",
+    layer.name = "Median Income",
+    map.types = "CartoDB.Positron",
+    na.color = "#AC5B4C",
+    col.regions = brewer.pal(100, "Blues"),
+    alpha.regions = 1
+  ) +
+  mapview(
+    counties,
+    zcol = "percent_disabled",
+    layer.name = "Disability Rate (%)",
+    map.types = "CartoDB.Positron",
+    na.color = "#AC5B4C",
+    col.regions = brewer.pal(100, "Blues"),
+    alpha.regions = 1
+  )
+```
